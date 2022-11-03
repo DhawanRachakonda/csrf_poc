@@ -3,20 +3,25 @@ const express = require("express");
 const session = require("express-session");
 var cors = require('cors');
 const cookieParser = require('cookie-parser');
-const Crypto = require('crypto')
+const Crypto = require('crypto');
+const ngrok = require('ngrok');
 
 const app = express();
 const port = 5555;
 
 app.set('view engine','ejs')
 
+const oneDay = 1000 * 60 * 60 * 24;
 app.use(
     session({
       // Don't do this, use a cryptographically random generated string
       secret: Crypto
       .randomBytes(21)
       .toString('base64')
-      .slice(0, 21)
+      .slice(0, 21),
+      saveUninitialized:true,
+      cookie: { maxAge: oneDay },
+      resave: false
     })
 );
 
@@ -61,7 +66,7 @@ const { generateToken, revokeToken, invalidCsrfTokenError }  = csrfSync({
 
 app.get("/csrf-token", (req, res) => {
     const token = generateToken(req);
-    res.cookie('X-csrf-token',token, { maxAge: 900000, httpOnly: true, secure: true});
+    res.cookie('X-csrf-token',token, { maxAge: 900000, httpOnly: true, secure: true, sameSite: "strict"});
   return res.render('index', {csrfToken: token});
 });
 
@@ -76,4 +81,8 @@ app.post("/secret-stuff", csrfSynchronisedProtection, myProtectedRoute);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
+  (async function() {
+    const url = await ngrok.connect(port);
+    console.log("URL => ", url);
+  })();
 });
